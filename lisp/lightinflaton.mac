@@ -1,0 +1,1144 @@
+/* -*- Maxima -*- */
+
+/* Set this to true to remake all the plots */
+/* recalc_all: true; */
+/* doplot: true; */
+
+/* All the numbers, if not mentioned otherwise, are in GeV and
+   correspond to PDG09 values */
+
+/* Particle physics parameters */
+
+numerval(GeVsec,6.58211899e-25)$ /* Conversion constant GeV*sec */
+numerval(GeV2pbarn,0.389379323d9)$ /* GeV^2 pbarn */
+
+numerval(GF,1.16637e-5)$
+numerval(v,1/sqrt(sqrt(2)*GF))$
+numerval(alpha,1/137.035999679)$
+numerval(sw2,0.23119)$
+numerval(MW,80.398)$
+numerval(MZ,91.1876)$
+
+numerval(me,0.510998910e-3)$
+numerval(mmu,105.6583668e-3)$
+numerval(mtau,1776.84d-3)$
+
+numerval(mc,1.27)$
+numerval(mb,4.2)$
+numerval(mt,171.3)$
+numerval(Vcd,-0.218, Vcs,0.94,     Vcb,41.2e-3,
+         Vtd,8e-3,   Vts,-38.7e-3, Vtb,1)$
+
+numerval(mpi,139.57018e-3)$ /* pi+- */
+numerval(mpi0,134.9766e-3)$
+numerval(mK,493.677e-3)$
+numerval(mK0,0.497614);
+numerval(GammaK,(1.2380e-8)^-1*GeVsec)$
+numerval(GammaKL,(5.116e-8)^-1*GeVsec)$
+numerval(mB0,5.27950);
+
+numerval(mD,1869.62d-3)$ /* D+- */
+numerval(GammaD,GeVsec/1040e-15)$
+numerval(BrDmunu, 3.82e-4)$ /* Br(D->mu+nu) */
+
+numerval(MJpsi,3.096916)$
+numerval(MYps,9.46030)$
+
+numerval(mB,5279.17e-3)$ /* B+- */
+
+
+/* Cosmological parameters */
+
+/* numerval(b0,1.5e-13)$ /*          /* minimally coupled quartic inflaton -- should not be used! */
+                                /* Check, what it is doing in this file?! */
+theta2_beta(mchi,b) := 2*b*(v/mchi)^2 $
+beta_th2(mchi,th2) := th2/2/(v/mchi)^2 $
+numerval(OmegaDM,0.22)$
+numerval(mDM,7.1e-3);
+
+
+/**********************************************************************/
+/* Inflaton branchings and lifetime */
+if not(load_pathname) then load_pathname:"./"$
+load(concat(pathname_directory(load_pathname),"chidecays.lisp"))$
+
+/* load inflationary calculations */
+load("nminf.mac")$
+load("geff.lisp")$
+
+load("draw")$
+
+tautot(mi,b):=''(ev(GeVsec,numer))/(gammatot(mi,b));
+
+amin:7e-10$
+mchi(mhiggs,a,beta) := mhiggs*sqrt(beta/(2*a));
+mh:126$
+lhiggs:ev(mh^2/v^2/2,numer)$
+
+t2reh:ev(2*amin/lhiggs,numer)$
+t2radmax(mchi):=(mchi/lhiggs/v)^2*0.1*2;
+mchimin(t2):=lhiggs*v*sqrt(t2/0.1/2);
+mchixi(t2,xi):=sqrt(2*beta(60,xi)/t2)*v;
+t2xi(mchi,xi):=2*beta(60,xi)/(mchi/v)^2;
+
+/**********************************************************************/
+/* Kaon branching */
+
+/* C.O.M. momentum of the particle of mass mh in the decay M->m+mh */
+ph(mchi,m,M):= M/2*sqrt((1-(mchi+m)/M)*(1+(mchi+m)/M-((mchi-m)/M)^2));
+
+/* inflaton meson anomalous vertex interaction */
+kappa: 2*nh/3/b, nh=3,b=9$
+/* Formfactors for kaon decay */
+numerval(gamma1, 3.1e-7 );
+numerval(gamma2, ev( 1/4*f*x*gamma1/(FK/FP-1), x=0.5,FK=2.22*FP,f=-0.11) );
+
+AKpihchiral: mK^2/v*( gamma1*(1-kappa)/2*(1-(mchi^2-mpi^2)/mK^2)
+                     -gamma2*(1-kappa) );
+AKpihquarks: mK^2/v*( 3*GF*sqrt(2)/(16*%pi^2)/2*( conjugate(Vcd)*mc^2*Vcs
+                                                 +conjugate(Vtd)*mt^2*Vts ) );
+AKpih: AKpihchiral+AKpihquarks;
+
+BrKpih: theta2*abs(AKpih)^2/(16*%pi*mK)*(2*ph/mK)/GammaK;
+BrKpih(mhparam,th2):= if (numberp(mhparam)) then
+                     if (mhparam<ev(mK-mpi,numer)) then
+                      ev( BrKpih,
+                          mchi:mhparam, theta2:th2,
+                          ph:ph(mhparam,mpi,mK), eval,numer)
+                        else 0
+                  else ev(BrKpih(mhparam,th2),noeval);
+
+BrKLpih: theta2*abs(AKpih)^2/(16*%pi*mK)*(2*ph/mK)/GammaKL;
+BrKLpih(mhparam,th2):= if (numberp(mhparam)) then
+                     if (mhparam<ev(mK-mpi,numer)) then
+                       ev( BrKLpih,
+                           mchi:mhparam, theta2:th2,
+                           ph:ph(mhparam,mpi,mK), eval,numer)
+                     else 0
+                   else ev(BrKLpih(mhparam,th2),noeval);
+/* Results for the formulas \ref{BrKpih},\ref{BrKLpih} */
+BrKpih,  mchi=0.,ph=mK/2,eval,numer;
+BrKLpih, mchi=0.,ph=mK/2,eval,numer;
+
+
+/* [mh(GeV),Br]: Bounds on the K+->pi+chi decay
+   from arXiv:0903.0030 fig.18, tau=infty */
+BrKpihbound1:[[4.94700E-3,1.24262E-10],[2.75618E-2,1.06734E-10],[5.08834E-2,8.97078E-11],[6.28975E-2,7.70535E-11],[7.63251E-2,6.76377E-11],[8.05654E-2,6.33704E-11],[8.55124E-2,5.68482E-11],[9.04594E-2,5.21172E-11],[9.46996E-2,5.09973E-11],[9.89399E-2,5.44313E-11],[1.01767E-1,6.06763E-11],[1.06714E-1,8.22421E-11],[1.09541E-1,1.13921E-10],[1.10954E-1,1.47847E-10],[1.19435E-1,7.87456E-10],[1.22261E-1,1.79770E-9],[1.24382E-1,4.10400E-9]]$
+BrKpihbound2:[[1.49823E-1,8.77801E-9],[1.53357E-1,5.44313E-9],[1.56184E-1,3.30269E-9],[1.59011E-1,1.96089E-9],[1.62544E-1,1.18979E-9],[1.66784E-1,7.53978E-10],[1.70318E-1,6.06763E-10],[1.74558E-1,5.09973E-10],[1.79505E-1,4.28623E-10],[1.85866E-1,3.76246E-10],[1.90106E-1,3.60250E-10],[1.95053E-1,3.60250E-10],[2.04240E-1,3.92952E-10],[2.12721E-1,4.57486E-10],[2.20495E-1,5.44313E-10],[2.26148E-1,5.80966E-10],[2.28975E-1,5.93724E-10],[2.31095E-1,6.20087E-10],[2.37456E-1,8.04749E-10],[2.41696E-1,1.06734E-9],[2.49470E-1,2.18586E-9],[2.52297E-1,3.16228E-9],[2.53710E-1,4.57486E-9]]$
+/* [mh(GeV),Br]: Bounds on the K+->pi+chi decay
+   from hep-ex/0403034 fig.3 */
+BrKpihbound3:[[8.51064E-3,4.39568E-11],[4.25532E-2,4.39568E-11],[5.53191E-2,4.39568E-11],[6.17021E-2,4.39568E-11],[6.80851E-2,4.69240E-11],[7.65957E-2,5.58528E-11],[8.43972E-2,6.94397E-11],[9.07801E-2,8.82321E-11],[9.64539E-2,1.17100E-10],[1.04965E-1,2.15443E-10],[1.09929E-1,3.87840E-10],[1.18440E-1,1.78070E-9],[1.22695E-1,8.17579E-9],[1.24113E-1,1.91128E-8],[1.24823E-1,2.95426E-8],[1.27660E-1,4.37182E-8]]$
+BrKpihbound4:[[1.61702E-1,1.03884E-8],[1.63121E-1,8.53969E-9],[1.63121E-1,6.02756E-9],[1.64539E-1,4.95491E-9],[1.65248E-1,4.34808E-9],[1.66667E-1,2.02922E-9],[1.71631E-1,9.47020E-10],[1.73759E-1,7.29263E-10],[1.75887E-1,6.39951E-10],[1.79433E-1,5.86572E-10],[1.82979E-1,5.73938E-10],[1.87234E-1,6.12680E-10],[1.90780E-1,6.68435E-10],[1.95035E-1,6.98187E-10],[1.99291E-1,6.68435E-10],[2.01418E-1,6.39951E-10],[2.04255E-1,6.39951E-10],[2.09220E-1,6.68435E-10],[2.14184E-1,7.29263E-10],[2.22695E-1,8.87137E-10],[2.32624E-1,1.22980E-9],[2.40426E-1,1.78070E-9],[2.44681E-1,2.75243E-9],[2.46809E-1,4.25443E-9]]$
+
+/**********************************************************************/
+/* D meson leptonic decays */
+/* Here we use the formula (4.5) from Phys.Rev.,D40,2980
+   cf. also (16) from Phys.Lett.,B222,143 */
+flnuh(x):= (1-8*x+x^2)*(1-x^2)-12*x^2*log(x);
+BrDenuh: ( sqrt(2)*GF*mD^4/(96*%pi^2*mmu^2*(1-mmu^2/mD^2)^2)
+          *BrDmunu*7/9*flnuh(mchi^2/mD^2)*theta2 );
+BrDenuh(mhparam,th2):= if (mhparam<ev(mD-mpi,numer)) then
+                      ev( BrDenuh,
+                          mchi:mhparam, theta2:th2,
+                          eval,numer)
+                   else 0;
+/* The simplest estimate for now -- neglecting muon mass */
+BrDmunuh(mhparam,th2):= BrDenuh(mhparam,th2);
+
+/**********************************************************************/
+/* B branching \ref{BrhX} */
+27*alpha^2/128/sw2^2/GF^2/mb^2/v^2/fmcmb*BrBenuX,
+  BrBenuX=0.108,fmcmb=0.51,numer;
+27*sqrt(2)*GF*mb^2/64/%pi^2*(MW/mb)^4/fmcmb*BrBenuX,
+  BrBenuX=0.108,fmcmb=0.51,numer;
+
+BrBhX: ( 27*alpha^2/128/sw2^2/GF^2/mb^2/v^2/fmcmb*BrBenuX
+        *(Vts*conjugate(Vtb)/abs(Vcb))^2*(mt/MW)^4
+        *(1-mchi^2/mB^2)^2*theta2
+       ),BrBenuX=0.108,fmcmb=0.51,numer;
+/* BrBhX(mhparam):= if (numberp(mhparam)) then
+                   if (mhparam<ev(mB-mpi,numer)) then
+                     ev( BrBhX,
+                         mchi:mhparam, theta2:theta2_beta(mhparam,b0),
+                         eval,numer )
+                   else 0
+                 else ev(BrBhX(mhparam),noeval); */
+BrBhX(mhparam,th2):= if (numberp(mhparam)) then
+                   if (mhparam<ev(mB-mpi,numer)) then
+                     ev( BrBhX,
+                         mchi:mhparam, theta2:th2,
+                         eval,numer )
+                   else 0
+                 else ev(BrBhX(mhparam,th2),noeval);
+
+/* "Branching" for belle B->Kll process */
+/* Should be fixed for nonzero xi -- uses b0 */
+/* lbelle:100;
+BrBelle(mchi):= (
+  (bree(mchi)+brmumu(mchi))*
+  (1-exp(-gammatot(mchi,b0)/GeVsec*lbelle/3e10*mchi/((mB0^2-mK0^2+mchi^2)/(2*mB0))))*
+  5.6*(1-mchi^2/mb^2)*theta2_beta(mchi,b0) ); */
+
+
+/**********************************************************************/
+/* Production in beam dumps via meson decays */
+
+/* Beam parameters -- from JHEP,10,015, Table 1 */
+bpar[CNGS,sigma]:40.6e9/GeV2pbarn,numer$
+bpar[CNGS,E]:400.0$
+bpar[CNGS,Npot]:4.5e19$
+bpar[CNGS,s]:2*bpar[CNGS,E]+2;
+bpar[CNGS,Mpp]:13$
+bpar[CNGS,chis]:1/7$
+bpar[CNGS,chic]:0.45e-3$
+bpar[CNGS,chib]:3e-8$
+bpar[NuMi,sigma]:38.58e9/GeV2pbarn,numer$
+bpar[NuMi,E]:120.0$
+bpar[NuMi,Npot]:5e19$
+bpar[NuMi,s]:2*bpar[NuMi,E]+2;
+bpar[NuMi,Mpp]:11$
+bpar[NuMi,chis]:1/7$
+bpar[NuMi,chic]:1e-4$
+bpar[NuMi,chib]:1e-10$
+bpar[T2K,sigma]:38e9/GeV2pbarn,numer$
+bpar[T2K,E]:50.0$
+bpar[T2K,Npot]:100e19$
+bpar[T2K,s]:2*bpar[T2K,E]+2;
+bpar[T2K,Mpp]:7$
+bpar[T2K,chis]:1/7$
+bpar[T2K,chic]:1e-5$
+bpar[T2K,chib]:1e-12$
+bpar[NuTeV,sigma]:41e9/GeV2pbarn,numer$
+bpar[NuTeV,E]:800.0$
+bpar[NuTeV,Npot]:1e19$
+bpar[NuTeV,s]:2*bpar[NuTeV,E]+2;
+bpar[NuTeV,Mpp]:15$
+bpar[NuTeV,chis]:1/7$
+bpar[NuTeV,chic]:1e-3$
+bpar[NuTeV,chib]:2e-7$
+
+/* Cross section normalized by total cross section */
+sigmaviaK(mchi,th2,beam):= if (numberp(mchi)) then
+    bpar[beam,Mpp]*bpar[beam,chis]*(
+      0.5*BrKpih(mchi,th2)+0.25*BrKLpih(mchi,th2) )
+  else ev(sigmaviaK(mchi,th2,beam),noeval);
+sigmaviaD(mchi,th2,beam):= if (numberp(mchi)) then
+    bpar[beam,Mpp]*bpar[beam,chic]*(BrDenuh(mchi,th2)+BrDmunuh(mchi,th2))
+  else ev(sigmaviaD(mchi,th2,beam),noeval);
+sigmaviaB(mchi,th2,beam):= if (numberp(mchi)) then
+    bpar[beam,Mpp]*bpar[beam,chib]*BrBhX(mchi,th2)
+  else ev(sigmaviaB(mchi,th2,beam),noeval);
+sigmaviamesons(mchi,th2,beam):= (
+  sigmaviaK(mchi,th2,beam)+sigmaviaD(mchi,th2,beam)+sigmaviaB(mchi,th2,beam) );
+
+/* Average (rough) CHARM energy) */
+EavgCharm:10;
+/* decay tunnel length and detector length */
+ldecay:480;
+ldetector:35;
+ldecaySHIP:50;
+ldetectorSHIP:50;
+lgamma(l,mchi):=l/3e8/GeVsec*mchi/EavgCharm;
+/* Number of inflaton events in detector for _one pi0_ created in the target */
+NeventsCharm(mchi,FX):=(
+  (Fpi/FX)^2*
+  exp(-gammaaxion(mchi,FX)*lgamma(ldecay,mchi))*
+  (1-exp(-gammaaxion(mchi,FX)*lgamma(ldetector,mchi))) );
+
+brforcharm(mchi):=bree(mchi)+brmumu(mchi)+brgammagamma(mchi);
+NeventsInflaton_beta(mchi,b):=(
+  ( sigmaviamesons(mchi,theta2_beta(mchi,b),CNGS) )/(bpar[CNGS,Mpp]*1/3)*
+  brforcharm(mchi)*
+  exp(-gammatot(mchi,b)*lgamma(ldecay,mchi))*
+  (1-exp(-gammatot(mchi,b)*lgamma(ldetector,mchi))) );
+
+NeventsInflaton_th2(mchi,th2):=(
+  if (numberp(mchi) and numberp(th2)) then
+  ev(
+    ( sigmaviamesons(mchi,th2,CNGS) )/(bpar[CNGS,Mpp]*1/3)*
+    brforcharm(mchi)*
+    exp(-gammatot(mchi,beta_th2(mchi,th2))*lgamma(ldecay,mchi))*
+    (1-exp(-gammatot(mchi,beta_th2(mchi,th2))*lgamma(ldetector,mchi))),
+    numer)
+  else
+  ev(NeventsInflaton_th2(mchi,th2),noeval) );
+
+NeventsInflatonSHIP_th2(mchi,th2):=(
+  if (numberp(mchi) and numberp(th2)) then
+  ev(
+    ( sigmaviamesons(mchi,th2,CNGS) )/(bpar[CNGS,Mpp]*1/3)*
+    brforcharm(mchi)*
+    exp(-gammatot(mchi,beta_th2(mchi,th2))*lgamma(ldecaySHIP,mchi))*
+    (1-exp(-gammatot(mchi,beta_th2(mchi,th2))*lgamma(ldetectorSHIP,mchi))),
+    numer)
+  else
+  ev(NeventsInflatonSHIP_th2(mchi,th2),noeval) );
+
+/* Not working at all
+   Required fixing of xi-beta-theta arguments which are now chaotic!
+
+if recalc_all then block([N:60],
+  contour_plot(log(NeventsInflaton(mchi,10^logxi))/log(10),
+    [mchi,0.2,0.33],[logxi,-5,0],
+    [grid,10,10],
+    [gnuplot_preamble,"set table 'cntr4.table';set cntrparam levels discrete -17"]
+    ),
+  system("sleep 0.1"));
+block([],
+  res4:[],
+  for s in read_nested_list("cntr4.table") do
+  if (length(s)=3) then res4:endcons([10^s[2],s[1]],res4),
+  res4:sort(res4));
+charm:makelist([ev(2*el[1]*v^2/el[2]^2,numer),el[2]],el,res4);
+charmswap:makelist([el[2],ev(2*el[1]*v^2/el[2]^2,numer)],el,res4);
+*/
+/* Using old (mchimbeta) data file:
+
+block([],
+  res4:[],
+  for s in read_nested_list("cntr4.table") do
+  if (length(s)=3) then res4:endcons([10^s[2],s[1]],res4),
+  res4:sort(res4));
+charm:makelist([ev(2*beta(60,el[1])*v^2/el[2]^2,numer),el[2]],el,res4);
+charmswap:makelist([el[2],ev(2*beta(60,el[1])*v^2/el[2]^2,numer)],el,res4);
+*/
+
+if recalc_all then block([N:60],
+  contour_plot(log(NeventsInflaton_th2(mchi,10^lth2))/log(10),
+    [mchi,0.1,0.36],[lth2,-9,-4],
+    [grid,200,200],
+    [gnuplot_preamble,"set table 'cntr4_th2.table';set cntrparam levels discrete -17"]
+    ),
+  system("sleep 0.1"));
+block([],
+  res4:[],
+  for s in read_nested_list("cntr4_th2.table") do
+  if (length(s)=3) then res4:endcons([s[1],10^s[2]],res4),
+  res4:sort(res4))$
+charmswap:copylist(res4)$
+charm:makelist([el[2],el[1]],el,res4)$
+
+if recalc_all then block([N:60],
+  contour_plot(log(NeventsInflatonSHIP_th2(mchi,10^lth2))/log(10),
+    [mchi,0.1,0.7],[lth2,-9,-4],
+    [grid,200,200],
+    [gnuplot_preamble,"set table 'cntr4ship_th2.table';set cntrparam levels discrete -18"]
+    ),
+  system("sleep 0.1"));
+block([],
+  res4:[],
+  for s in read_nested_list("cntr4ship_th2.table") do
+  if (length(s)=3) then res4:endcons([s[1],10^s[2]],res4),
+  res4:sort(res4))$
+shipswap:copylist(res4)$
+ship:makelist([el[2],el[1]],el,res4)$
+
+
+if recalc_all then block([],
+  contour_plot(log(tautot(10^logmh,beta(60,10^logxi)))/log(10),
+    [logxi,-3,0],[logmh,-1,1.5],
+    [grid,100,100],
+    [gnuplot_preamble,"set grid;set cntrparam levels discrete -12,-11,-10,-9;
+    set table 'lifetime_cntr.table';"]
+    ),
+  system("sleep 0.1;"));
+block([i:0],
+  lifetime_contours:[[],[],[],[]],
+  for s in read_nested_list("lifetime_cntr.table") do
+  block([],
+    if (length(s)>0) then
+    if (s[2]=Contour) then block([],print(s),i:i+1)
+    elseif (length(s)=3) then block([],lifetime_contours[i]:endcons([10^s[1],10^s[2]],lifetime_contours[i]))
+    ),
+  for i in [1,2,3,4] do
+    lifetime_contours[i]:sort(lifetime_contours[i],lambda([a,b],a[2]>b[2])));
+
+if recalc_all then block([],
+  contour_plot(log(tautot(10^logmh,10^logth2/2/(v/10^logmh)^2))/log(10),
+    [logth2,-8,-4],[logmh,-1,1.5],
+    [grid,100,100],
+    [gnuplot_preamble,"set grid;set cntrparam levels discrete -12,-11,-10,-9;
+    set table 'lifetime_c2_cntr.table';"]
+    ),
+  system("sleep 0.1;"));
+block([i:0],
+  lifetime_c2:[[],[],[],[]],
+  for s in read_nested_list("lifetime_c2_cntr.table") do
+  block([],
+    if (length(s)>0) then
+    if (s[2]=Contour) then block([],print(s),i:i+1)
+    elseif (length(s)=3) then block([],lifetime_c2[i]:endcons([10^s[1],10^s[2]],lifetime_c2[i]))
+    ),
+  for i in [1,2,3,4] do
+    lifetime_c2[i]:sort(lifetime_c2[i],lambda([a,b],a[2]>b[2])));
+for i in [1,2,3,4] do
+  lifetime_c2_swap[i]:makelist([el[2],el[1]],el,lifetime_c2[i]);
+
+
+
+/* Dark Matter production */
+/* Effective number of degrees of freedom for given temperature
+   Should be taken from Misha's fig.2 of JHEP01(2007)091
+   Not very exact, but that is unimportant here */
+gstar(t):=( if numberp(t) then (
+    if (t<0.5e-3) then 3.36
+    elseif (t<2e-3) then 3.36+7/8*2*2 /* e+-; */
+    elseif (t<105e-3) then 10.75
+    elseif (t<130e-3) then 10.75+7/8*2*2  /* mu+- */
+    elseif (t<300e-3) then 10.75+7/8*2*2+3 /* pi ? */
+    elseif (t<1.25) then 2+8*2+7/8*(3*2+4+4+3*4*3) /* LambdaQCD */
+    elseif (t<100) then 2+8*2+7/8*(3*2+4+4+3*4*4) /* mc */
+    else 2+8*2+3*2+4+7/8*(3*2+4+4+4+3*4*6) /*; # EW break?*/
+    )
+  else ev(gstar(t),noeval) );
+
+/* Function f(mi) from Phys.Lett.,B639,414 (2006), used in formula (11)
+   Not very precise for the moment -- linear approximation for m<0.75*/
+fDM(mi):= ( if numberp(mi) then (
+    if (mi<0.75) then 0.9+(0.4-0.9)/(0.5-0.07)*(mi-0.07)
+    else (10.75/geff(mi/3))^(1.5) )
+  else ev(fDM(mi),noeval));
+fDM2(mi):= ( if numberp(mi) then (
+    (10.75/geff(mi/3))^(1.5) )
+  else ev(fDM2(mi),noeval));
+
+/*
+draw2d(xrange=[0.01,10],yrange=[0,1],logx=true,explicit(fDM(x),x,0.01,10),color=red,explicit(fDM2(x),x,0.01,10));
+*/
+
+betaDMprod(mchi,S):=1.5e-13*(S/(6.4*fDM(mchi)))*(OmegaDM/0.25)*(10e-3/mDM)^3*(mchi/0.1)^3;
+th2DMprod(mchi,S):=2*betaDMprod(mchi,S)*v^2/mchi^2;
+xiDMprod(mchi,S):=xi(60,betaDMprod(mchi,S));
+
+betaDMprod2(mchi,S):=1.5e-13*(S/(6.4*fDM2(mchi)))*(OmegaDM/0.25)*(10e-3/mDM)^3*(mchi/0.1)^3;
+th2DMprod2(mchi,S):=2*betaDMprod2(mchi,S)*v^2/mchi^2;
+xiDMprod2(mchi,S):=xi(60,betaDMprod2(mchi,S));
+
+/* DM Ly-alpha bound */
+/* Question1 -- What d.o.f. to compare to? */
+/* Question2 -- How the cool number 20.7 or 8 for mNRP were obtained?!
+   how many sigma is it?!
+   */
+
+mDMLybound(mchi,mnrp):=2.45/3.15*(10.75/geff(mchi/3))^(1/3)*mnrp;
+/* normalizing to the present day d.o.f. ?
+   This correspons do Kusenko's calculation
+   */
+mDMLybound2(mchi,mnrp):=2.45/3.15*(3.36/geff(mchi/3))^(1/3)*mnrp;
+
+
+
+/******************** Plots ************************************************/
+
+
+/* Lyman alpha bounds plot *****************************************/
+if doplots then
+block([], 
+  draw2d(
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="M_1",
+    logx = true, xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    yrange=[2,14],
+    grid=true,
+    line_width=6,
+    color=black,
+    explicit(7,mchi,0.1,1),
+    color=red,
+    explicit(mDMLybound(mchi,8),mchi,0.1,1),
+    color=blue, line_type=dashes,
+    explicit(mDMLybound(mchi,20.7),mchi,0.1,1),
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,
+    file_name="mLy"),
+  system("epstopdf mLy.eps"))$
+
+if doplots then
+block([], 
+  draw2d(
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="M_1",
+    logx = true, xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    yrange=[2,11],
+    grid=true,
+    line_width=6,
+    color=black,
+    explicit(7,mchi,0.1,1),
+    color=red,
+    explicit(mDMLybound2(mchi,8),mchi,0.1,1),
+    color=blue, line_type=dashes,
+    explicit(mDMLybound2(mchi,20.7),mchi,0.1,1),
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,
+    file_name="mLy2"),
+  system("epstopdf mLy2.eps"))$
+
+
+/* Mixing angle plot **********************************************/
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    /* key="{/Symbol t_c}=10^{-12}s", */
+    color=red,   points(lifetime_c2_swap[4]),
+    /* key="{/Symbol t_c}=10^{-11}s", */
+    color=orange,  points(lifetime_c2_swap[3]),
+    /* key="{/Symbol t_c}=10^{-10}s", */
+    color=skyblue, points(lifetime_c2_swap[2]),
+    /* key="{/Symbol t_c}=10^{-9}s", */
+    color=blue, points(lifetime_c2_swap[1]),
+    key="",
+
+    fill_color=dark_orange, color=brown,
+    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),
+    color=black, label(["CHARM",0.17,2.5e-6]),
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.4,5e-8]),
+
+    line_width=6,
+    explicit(th2DMprod(mchi,1.0),mchi,mchimin,mchimax),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_dm"),
+  system("epstopdf mchi_theta_dm.eps"))$
+
+
+
+
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';
+                   set label '10^{-12}s' at 0.9,0.9e-5 right rotate by -25;
+                   set label '{/Symbol t_c}=10^{-11}s' at 0.8,1.2e-6 right rotate by -25;
+                   set label '10^{-10}s' at 0.45,6e-7 rotate by -25;
+                   set label '10^{-9}s' at 0.27,7e-7 rotate by -25 front;
+                   set style fill transparent solid 0.8;
+                   ",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    fill_color=grey90, color=black,
+/*    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),*/
+    polygon( block( [r],r:[],
+        for i:1 thru length(shipswap) do
+          if shipswap[i][1]<0.25 and shipswap[i][2]<1e-7 then
+            r:endcons(shipswap[i],r),
+        for i:length(shipswap) thru 1 step -1 do
+          if shipswap[i][1]>0.25 or shipswap[i][2]>1e-7 then
+            r:endcons(shipswap[i],r),
+        r:endcons([mchimin,t2max],r),
+        r ) ),
+    color=black, label(["SHIP",0.29,5e-6]),
+    color=black, label(["expected",0.29,3e-6]),
+
+    fill_color=dark_orange, color=brown,
+/*    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),*/
+    polygon( block( [r],r:[],
+        for i:1 thru length(charmswap) do
+          if charmswap[i][1]<0.25 and charmswap[i][2]<1e-7 then
+            r:endcons(charmswap[i],r),
+        for i:length(charmswap) thru 1 step -1 do
+          if charmswap[i][1]>0.25 or charmswap[i][2]>1e-7 then
+            r:endcons(charmswap[i],r),
+        r:endcons([mchimin,t2max],r),
+        r ) ),
+    color=black, label(["CHARM",0.17,2e-6]),
+
+    points_joined=true, point_type=dot, line_type=solid,
+    /* key="{/Symbol t_c}=10^{-12}s", */
+    color=red,   points(lifetime_c2_swap[4]),
+    /* key="{/Symbol t_c}=10^{-11}s", */
+    color=orange,  points(lifetime_c2_swap[3]),
+    /* key="{/Symbol t_c}=10^{-10}s", */
+    color=skyblue, points(lifetime_c2_swap[2]),
+    /* key="{/Symbol t_c}=10^{-9}s", */
+    color=blue, points(lifetime_c2_swap[1]),
+    key="",
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.55,4e-8]),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+
+    font="Arial",font_size=12,dimensions=[800,600],terminal=pdf,file_name="mchi_theta_lifetime"))$
+
+
+
+/* Mixing angle plot **********************************************/
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    fill_color=dark_orange, color=brown,
+    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),
+    color=black, label(["CHARM",0.17,2.5e-6]),
+
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_charm"),
+  system("epstopdf mchi_theta_charm.eps"))$
+
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    /* key="{/Symbol t_c}=10^{-12}s", */
+    color=red,   points(lifetime_c2_swap[4]),
+    /* key="{/Symbol t_c}=10^{-11}s", */
+    color=orange,  points(lifetime_c2_swap[3]),
+    /* key="{/Symbol t_c}=10^{-10}s", */
+    color=skyblue, points(lifetime_c2_swap[2]),
+    /* key="{/Symbol t_c}=10^{-9}s", */
+    color=blue, points(lifetime_c2_swap[1]),
+    key="",
+
+    fill_color=dark_orange, color=brown,
+    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),
+    color=black, label(["CHARM",0.17,2.5e-6]),
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.4,5e-8]),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta"),
+  system("epstopdf mchi_theta.eps"))$
+
+
+
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+     /* key="{/Symbol t_c}=10^{-12}s",  */
+    color=red,   points(lifetime_c2_swap[4]),
+     /* key="{/Symbol t_c}=10^{-11}s",  */
+    color=orange,  points(lifetime_c2_swap[3]),
+     /* key="{/Symbol t_c}=10^{-10}s",  */
+    color=skyblue, points(lifetime_c2_swap[2]),
+     /* key="{/Symbol t_c}=10^{-9}s",  */
+    color=blue, points(lifetime_c2_swap[1]),
+    key="",
+
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_life"),
+  system("epstopdf mchi_theta_life.eps"))$
+
+
+
+
+/* Mixing angles with r */
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    /* key="{/Symbol t_c}=10^{-9}s",  color=blue, points(lifetime_c2_swap[1]), */
+    /* key="{/Symbol t_c}=10^{-10}s", color=skyblue, points(lifetime_c2_swap[2]), */
+    /* key="{/Symbol t_c}=10^{-11}s", color=orange,  points(lifetime_c2_swap[3]), */
+    /* key="{/Symbol t_c}=10^{-12}s", color=red, points(lifetime_c2_swap[4]), */
+    color=magenta,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.01,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=red,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.025,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=orange,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.05,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=skyblue,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.1,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=blue,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.2,xi,0.000001,1)),mchi,mchimin,mchimax),
+    key="",
+
+    fill_color=dark_orange, color=brown,
+    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),
+    color=black, label(["CHARM",0.17,2.5e-6]),
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.4,5e-8]),
+
+    line_width=6,
+    explicit(th2DMprod(mchi,1.0),mchi,mchimin,mchimax),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_r_dm"),
+  system("epstopdf mchi_theta_r_dm.eps"))$
+
+
+
+
+
+
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';
+                   set label 'r=0.01' at 0.8,2e-6 right rotate by -19;
+                   set label '0.025' at 0.8,0.55e-6 right rotate by -19;
+                   set label '0.05' at 0.8,2.3e-7 right rotate by -19;
+                   set label '0.1' at 0.8,1.1e-7 right rotate by -19;
+                   set label '0.2' at 0.8,0.55e-7 right rotate by -19;
+                   set style fill transparent solid 0.8;
+                   ",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    /* key="{/Symbol t_c}=10^{-9}s",  color=blue, points(lifetime_c2_swap[1]), */
+    /* key="{/Symbol t_c}=10^{-10}s", color=skyblue, points(lifetime_c2_swap[2]), */
+    /* key="{/Symbol t_c}=10^{-11}s", color=orange,  points(lifetime_c2_swap[3]), */
+    /* key="{/Symbol t_c}=10^{-12}s", color=red, points(lifetime_c2_swap[4]), */
+    color=magenta,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.01,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=red,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.025,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=orange,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.05,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=skyblue,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.1,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=blue,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.2,xi,0.000001,1)),mchi,mchimin,mchimax),
+    key="",
+
+    fill_color=grey90, color=black,
+/*    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),*/
+    polygon( block( [r],r:[],
+        for i:1 thru length(shipswap) do
+          if shipswap[i][1]<0.25 and shipswap[i][2]<1e-7 then
+            r:endcons(shipswap[i],r),
+        for i:length(shipswap) thru 1 step -1 do
+          if shipswap[i][1]>0.25 or shipswap[i][2]>1e-7 then
+            r:endcons(shipswap[i],r),
+        r:endcons([mchimin,t2max],r),
+        r ) ),
+    color=black, label(["SHIP",0.29,5e-6]),
+    color=black, label(["expected",0.29,3e-6]),
+
+    fill_color=dark_orange, color=brown,
+/*    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),*/
+    polygon( block( [r],r:[],
+        for i:1 thru length(charmswap) do
+          if charmswap[i][1]<0.25 and charmswap[i][2]<1e-7 then
+            r:endcons(charmswap[i],r),
+        for i:length(charmswap) thru 1 step -1 do
+          if charmswap[i][1]>0.25 or charmswap[i][2]>1e-7 then
+            r:endcons(charmswap[i],r),
+        r:endcons([mchimin,t2max],r),
+        r ) ),
+    color=black, label(["CHARM",0.17,2e-6]),
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.55,4e-8]),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Arial",font_size=12,dimensions=[800,600],terminal=pdf,file_name="mchi_theta_r"))$
+
+
+/* system("epstopdf mchi_theta_r.eps"))$ */
+
+
+
+
+/* Mixing angles with r */
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    /* key="{/Symbol t_c}=10^{-9}s",  color=blue, points(lifetime_c2_swap[1]), */
+    /* key="{/Symbol t_c}=10^{-10}s", color=skyblue, points(lifetime_c2_swap[2]), */
+    /* key="{/Symbol t_c}=10^{-11}s", color=orange,  points(lifetime_c2_swap[3]), */
+    /* key="{/Symbol t_c}=10^{-12}s", color=red, points(lifetime_c2_swap[4]), */
+    color=magenta,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.01,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=red,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.025,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=orange,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.05,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=skyblue,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.1,xi,0.000001,1)),mchi,mchimin,mchimax),
+    color=blue,
+    explicit(t2xi(mchi,find_root(r(60,xi)=0.2,xi,0.000001,1)),mchi,mchimin,mchimax),
+    key="",
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.4,5e-8]),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_r_noCHARM_dm"),
+  system("epstopdf mchi_theta_r_noCHARM_dm.eps"))$
+
+/* Mixing angles with r */
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    key="",
+
+    fill_color=dark_orange, color=brown,
+    polygon(append(charmswap,[[mchimin,last(charmswap)[2]],[mchimin,first(charmswap)[2]]])),
+    color=black, label(["CHARM",0.17,2.5e-6]),
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.4,5e-8]),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_nor_dm"),
+  system("epstopdf mchi_theta_nor_dm.eps"))$
+
+/* Mixing angles with r */
+if doplots then
+block([t2min:0.5e-8,
+       t2max:1e-4,
+       mchimin:0.1,
+       mchimax:1.0],
+  draw2d(
+    logx=true, logy=true, xrange=[mchimin,mchimax], yrange=[t2min,t2max],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol q^2}",
+    user_preamble="set tics front;
+                   set key at 1,2e-6;
+                   set ylabel offset 2; set bmargin 4;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    points_joined=true, point_type=dot,
+    line_type=dashes,
+    line_width=2,
+
+    points_joined=true, point_type=dot, line_type=solid,
+    key="",
+
+    fill_color=yellow, filled_func=true,        explicit(t2xi(mchi,1e-10),mchi,mchimin,mchimax),
+    filled_func=false,
+    label_orientation=horizontal, color=black,
+    label(["{/Symbol x}<0",0.4,5e-8]),
+
+    line_width=1,
+
+    fill_color=green,
+    polygon([[mchimin,t2min],[mchimin,t2reh],[mchimax,t2reh],[mchimax,t2min]]),
+    label_orientation=horizontal, color=black, label(["No reheating",sqrt(0.1),0.7e-8]),
+
+    fill_color=light_blue, filled_func=t2max, explicit(t2radmax(mchi),mchi,mchimin,mchimax),
+    label_orientation=horizontal, color=black, label(["Rad. corrections",sqrt(0.03),2.5e-5]),
+    
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_theta_noCHARM_dm"),
+  system("epstopdf mchi_theta_noCHARM_dm.eps"))$
+
+
+/* Lifetime plot ********************************************************/
+if doplots then
+block([mchimin:0.1,
+       mchimax:1.0,
+       N:60,S:1.0],
+  draw2d(
+    logx=true, xrange=[mchimin,mchimax],
+    logy=true, yrange=[1e-15,1e-3],
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol t_c}, s",
+    user_preamble="set tics front;
+                   set ylabel offset 2; set bmargin 4;
+                   set y2label 'Br(B->K{/Symbol c})';
+                   set y2tics; set log y2;
+                   set format y '%g';",
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    line_width=6,
+    explicit( tautot(mchi,betaDMprod(mchi,S)), mchi, mchimin, mchimax),
+    yaxis_secondary=true, yrange_secondary=[(10^0.25)*1e-6,(10^0.25)*1e-3],
+    color=red, line_type=dashes,
+    explicit( BrBhX(mchi,th2DMprod(mchi,S)), mchi, mchimin, mchimax),
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_lifetime_dm"),
+  system("epstopdf mchi_lifetime_dm.eps"))$
+
+
+/* Inflationary parameters *****************************************/
+if doplots then
+block([mchimin:0.1,mchimax:1.0,N:60,S:1.0],
+  draw2d(
+    logx=true, xrange=[mchimin,mchimax], yrange=[0,0.2],
+    grid=true,
+    ylabel="r", xlabel="m_{/Symbol c}, GeV",
+    user_preamble="set tics front;
+                   set format y '%g';
+                   set y2label 'n_s';
+                   set y2tics",
+    line_width=6,
+    xtics = { 0.1,0.2,0.3,0.4,0.6,0.8,1.0},
+    color=black, label(["r",0.28,0.04]),
+    color=black, label(["n_s",0.28,0.18]),
+    color=blue,
+    explicit(r(N,xiDMprod(mchi,S)),mchi,0.15,mchimax),
+    yaxis_secondary=true, yrange_secondary=[0.95,0.97],
+    color=red, line_type=dashes,
+    explicit(ns(N,xiDMprod(mchi,S)),mchi,0.15,mchimax),
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="mchi_r"),
+  system("epstopdf mchi_r.eps"))$
+
+
+
+/* Branchings plot ***************/
+
+if doplots then
+block([mmin:0.1,mmax:6],
+  set_draw_defaults(),
+  draw2d(
+    xlabel="m_{/Symbol c}, GeV", ylabel="Branching",
+    user_preamble="set ylabel offset 2; set bmargin 4;",
+    xrange=[mmin,mmax], logx=true,
+    yrange=[0.001,1.1], logy=true,
+    grid=true,
+    line_width=6,
+    color=green,explicit(brgammagamma(m),m,mmin,mmax),
+    color=red,explicit(bree(m),m,mmin,mmax),
+    color=blue,explicit(brmumu(m),m,mmin,1.1),
+    color=blue,explicit(brmumu(m),m,2.5,mmax),
+    color=magenta,explicit(brtautau(m),m,2*mtau,mmax),
+    color=black,explicit(brpipitot(m),m,mmin,1.1),
+    color=magenta,explicit(brkktot(m),m,mmin,1.1),
+    color=black,explicit(brgg(m),m,2.5,mmax),
+    color=red,explicit(brsskcut(m),m,2.5,mmax),
+    color=magenta,explicit(brcc(m),m,2*mD,mmax),
+    color=black,
+    label([ "{/Symbol gg}",0.13,0.002]),
+    label([ "e^+e^-",0.13,0.7]),
+    label([ "{/Symbol m^+m^-}",0.4,0.06]),
+    label([ "{/Symbol m^+m^-}",5,0.002]),
+    label([ "{/Symbol t^+t^-}",5,0.15]),
+    label([ "{/Symbol pp}",0.4,0.7]),
+    label([ "KK",0.75,0.2]),
+    label([ "gg",5,0.019]),
+    label([ "ss",5,0.005]),
+    label([ "cc",5.5,0.85]),
+    font="Helvetica",font_size=16,dimensions=[800,600],terminal=eps,file_name="branchings"),
+  system("epstopdf branchings.eps"))$
+
+
+
+/* Lifetime plot */
+if doplots then
+  draw2d(
+    grid=true,
+    xlabel="m_{/Symbol c}, GeV",
+    ylabel="{/Symbol t_c} (10^{-6}/{/Symbol q}^2), s",
+    user_preamble="set tics front;
+                   set format y '%g';",
+    logx=true,logy=true,
+    line_width=4,
+    line_type=solid,
+    explicit(tautot(mchi,beta_th2(mchi,1e-6)),mchi,0.1,1.1),
+    line_type=dots,
+    explicit(tautot(mchi,beta_th2(mchi,1e-6)),mchi,1.1,2.5),
+    line_type=solid,
+    explicit(tautot(mchi,beta_th2(mchi,1e-6)),mchi,2.5,10),
+    terminal=pdf,file_name="lifetime_theta");
+
+/* system("zathura lifetime_theta.pdf&"); */

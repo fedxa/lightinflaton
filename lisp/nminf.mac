@@ -1,0 +1,416 @@
+/* -*- Maxima -*- */
+/*
+  Calculations for the non-minimally coupled inflation with beta phi^4/4 potential.
+  Exact. (No induced contribution to the Mpl though!)
+*/
+
+load("draw");
+
+/* Conformal transformation */
+Omega2(phi,xi) := 1 + xi*phi^2;
+
+/* Jordan frame potential */
+V(phi,beta) := beta*phi^4/4;
+
+/* Einstein frame potential depending on the Jordan frame field */
+U(phi,beta,xi) := ''(V(phi,beta)/Omega2(phi,xi)^2);
+
+/* field change differetial equation (dchi/dphi)^2 */
+dchidphi2(phi,xi) := ''(ev((Omega2(phi,xi)+6*xi^2*phi^2)/Omega2(phi,xi)^2));
+
+/* EF slow roll parameters (JF field) */
+epsilon(phi2,xi) := 8/(phi2*(1+xi*(1+6*xi)*phi2));
+eta(phi2,xi) := 4*( 3+xi*(1+12*xi)*phi2-2*xi^2*(1+6*xi)*phi2^2 )
+                / ( phi2*(1+xi*(1+6*xi)*phi2)^2 );
+
+/* End of inflation JF field */
+phiend2(xi) := (sqrt(192*xi^2+32*xi+1)-1) / (2*xi*(1+6*xi));
+
+/*
+  N-efold JF field.
+  Note, that the "small" xi value gives just a small constant error
+  even for xi>>1, about d(phiN^2)/phiN^2~0.5e-3 for N~60
+  (with error becoming larger for smaller N)
+*/
+phiN2_small(N,xi) := 8*(N+1)/(1+6*xi);
+phiN2_small_precise(N,xi) := phiend2(xi)
+               + 1/(xi+1/6)*( 4*N/3 + log(1+4*N*xi/3/((xi+1/6)*(1+xi*phiend2(xi)))) );
+phiN2_large(N,xi) := (84.83946+1.34905*(N-60))/(xi+1/6);
+/*
+defint(radcan(U/diff(U,phi)*dchidphi2(phi,xi)),phi,phie,phin),U=U(phi,beta,xi);
+*/
+nefold(phi2,xi) := 3/4*( (xi+1/6)*(phi2-phiend2(xi))
+                                  -log((1+xi*phi2)/(1+xi*phiend2(xi))) );
+load("newton1");
+phiN2(N,xi) := if (numberp(xi)) then
+    ev(newton( nefold(phi2,xi)-N, phi2, phiN2_small(N,xi), 0.1 ),numer)
+  else
+    ev(phiN2(N,xi),noeval);
+
+/* Some comparison plots
+plot2d([ (phiN2_large(N,xi)/phiN2(N,xi)-1),
+         (phiN2_small(N,xi)/phiN2(N,xi)-1) ],
+       [xi,0.001,100],
+       [logx], [y,-0.01,0.01]),N=60;
+plot2d([(phiN2(50,xi)-phiN2_verysmall(50,xi))/phiN2(50,xi),
+        (phiN2(60,xi)-phiN2_verysmall(60,xi))/phiN2(60,xi)],
+       [xi,1e-6,1e6],[logx]);
+plot2d([(phiN2(N,xi)-phiN2_verysmall(N,xi))/phiN2(N,xi),log(N)*6/8/N],
+       [N,10,10000],[logx],[logy]),xi=10000;
+*/
+
+/* CMB observables */
+ns1(phi2,xi) := 1 - 6*epsilon(phi2,xi) + 2*eta(phi2,xi);
+ns(N,xi) := ns1(phiN2(N,xi),xi);
+r1(phi2,xi) := 16*epsilon(phi2,xi);
+r(N,xi) := r1(phiN2(N,xi),xi);
+
+numerval( deltaR, sqrt(0.0276^4/24/%pi^2) );
+/* quartic coupling for CMB normalization */
+beta1(phi2,xi) := ''(ev(24*%pi^2*deltaR^2*32,numer)) * (1+xi*phi2)^2 /
+                    ( phi2^3*(1+(6*xi^2+xi)*phi2) );
+beta(N,xi) := beta1(phiN2(N,xi),xi);
+beta_symb1(phi2,xi) := 24*%pi^2*deltaR^2*32 * (1+xi*phi2)^2 /
+                       ( phi2^3*(1+(6*xi^2+xi)*phi2) );
+
+/* Very rough approximation! */
+xi_largen(N,b) := ''(ev( ( (N+1)*sqrt( (8*N^2+22*N+14)*b/%pi^2/deltaR^2 + 4 )-2*N-5 )
+                        /( 6*(4*N+7) ) ,numer));
+xi(N,b):=find_root(beta(N,xi)=b,xi,0.8*xi_largen(N,b),1.2*xi_largen(N,b));
+
+load("nefold.mac");
+/* 
+nWMAP( MP^4*U(sqrt(phiN2(N,xi)),beta(phiN2(N,xi),xi),xi),
+       MP^4*U(sqrt(phiend2(xi)),beta(phiN2(N,xi),xi),xi),
+       MP^4*U(sqrt(phiend2(xi)),beta(phiN2(N,xi),xi),xi) ),N=62,xi=1e-13;
+nWMAP( MP^4*U(sqrt(phiN2(N,xi)),beta(phiN2(N,xi),xi),xi),
+       MP^4*U(sqrt(phiend2(xi)),beta(phiN2(N,xi),xi),xi),
+       MP^4*U(sqrt(phiend2(xi)),beta(phiN2(N,xi),xi),xi) ),N=59,xi=1;
+     */
+ntmp(N,xi):=nWMAP( MP^4*U(sqrt(phiN2(N,xi)),beta(N,xi),xi),
+                   MP^4*U(sqrt(phiend2(xi)),beta(N,xi),xi),
+                   MP^4*U(sqrt(phiend2(xi)),beta(N,xi),xi) );
+/* N-efolding dependence on xi -- something between 61.5 (xi=0) and 59 (x=1)
+   I will use 60 everywhere :)
+ */
+/*
+plot2d([ntmp(59,xi),ntmp(60,xi),ntmp(61,xi)],[xi,1e-6,10],[logx]);
+*/
+
+nsrlist(N,tlist):=map( lambda([t],[ns(N,t),r(N,t)]), tlist);
+
+/*
+plot2d( beta(phiN2_small(N,xi),xi)/beta(N,xi)-1,
+        [xi,1e-3,100], [logx]),N=60;
+*/
+
+/* Plots of all important parameters: beta plot */
+/*
+
+plot2d( [ [parametric, ns1(phiN2(60,10^t),10^t), 10^t, [t,-5,0]],
+          [parametric, ns1(phiN2_verysmall(60,10^t),10^t), 10^t, [t,-5,0]] ],
+  [x,0.94,1.0], [logy],
+  [ylabel,"{/Symbol x}"],[xlabel,"n_s"],
+  [style, [lines,4]]), N=60;
+gnuplot_replot("set size 0.6,0.6;
+                set lmargin 9.5;
+                set term postscript eps enhanced color solid 18;
+                set out 'ns_xi.eps';");
+
+plot2d( (1-r1(phiN2(60,xi),xi)/r1(phiN2_verysmall(60,xi),xi)), [xi,1e-5,1], [logx],
+  [xlabel,"{/Symbol x}"],[ylabel,"deltar"],
+  [style, [lines,4]]);
+plot2d( (1-(ns1(phiN2(60,xi),xi)-1)/(ns1(phiN2_verysmall(60,xi),xi)-1)), [xi,1e-5,1], [logx],
+  [xlabel,"{/Symbol x}"],[ylabel,"deltans"],
+  [style, [lines,4]]);
+*/
+
+if doplots then block([],
+plot2d( beta(60,xi),
+  [xi,1e-5,1], [logy], [logx],
+  [xlabel,"{/Symbol x}"],[ylabel,"{/Symbol b}"],
+  [style, [lines,4]]),
+gnuplot_replot("set size 0.6,0.6;unset key;
+                set lmargin 9.5;
+                set term postscript eps enhanced color solid 18;
+                set out 'beta_xi.eps';"));
+
+if doplots then block([],
+plot2d( [ r1(phiN2(60,xi),xi),r1(phiN2_verysmall(60,xi),xi) ], [xi,1e-5,1], [logx],
+  [xlabel,"{/Symbol x}"],[ylabel,"r"],
+  [style, [lines,4]]),
+gnuplot_replot("set size 0.6,0.6;unset key;
+                set lmargin 9.5; set bmargin 3;
+                set term postscript eps enhanced color solid 18;
+                set out 'r_xi.eps';"));
+
+if doplots then block([],
+plot2d( [ r1(phiN2(60,xi),xi) ], [xi,1e-5,10], [logx],
+  [logy], [y,2e-3,1],
+  [xlabel,"{/Symbol x}"],[ylabel,"r"],
+  [style, [lines,4]]),
+gnuplot_replot("set size 0.6,0.6;unset key;
+                set lmargin 9.5; set bmargin 3;
+                set xtics ('10^{-4}' 1e-4,'10^{-3}' 0.001,0.01,0.1,1,10);
+                set term postscript eps enhanced color solid 18;
+                set out 'logr_xi.eps';"),
+system("sleep 1;epstopdf logr_xi.eps"));
+
+if doplots then block([N:60],
+plot2d( [ [parametric, ns1(phiN2(N,t),t),r1(phiN2(N,t),t),
+                       [t,1e-6,1]],
+          [discrete, nsrlist(60,[1e-9,1e-3,0.01,0.1])],
+          [discrete, wmap51s], [discrete, wmap52s],
+          [discrete, wmap91s], [discrete, wmap92s],
+          [discrete, wmap9bao1s], [discrete, wmap9bao2s]
+          ],
+  [x,0.94,1],
+  [ylabel,"r"],[xlabel,"n_s"],
+  [style, [lines,4],[points,4,1],[lines,4],[lines,4]]
+  ),
+gnuplot_replot("set size 0.6,0.6;unset key;
+                set label 1 at 0.954,0.27 '{/Symbol x}=0';
+                set label 2 at 0.9595,0.18 '{/Symbol x}=0.001';
+                set label 3 at 0.967,0.05 '{/Symbol x}=0.01';
+                set label 4 at 0.97,0.015 '{/Symbol x}=0.1';
+                set lmargin 9.5; set bmargin 3;
+                set term postscript eps enhanced color solid 18;
+                set out 'ns_r.eps';"));
+
+
+if doplots then block([],
+plot2d( [ r1(phiN2(60,xi),xi),r1(phiN2_verysmall(60,xi),xi) ], [xi,1e-6,1e4], [logx],
+  [xlabel,"{/Symbol x}"],[ylabel,"r"],
+  [style, [lines,4]]),
+gnuplot_replot("set size 0.6,0.6;unset key;
+                set lmargin 9.5; set bmargin 3;
+                set xtics (1e-6,1e-4,0.01,1,100,10000);
+                set term postscript eps enhanced color solid 18;
+                set out 'r_xi_large.eps';"),
+system("sleep 1;epstopdf r_xi_large.eps"));
+
+if doplots then block([],
+plot2d( [beta(60,xi),beta1(phiN2(60,xi),xi)],
+  [xi,1e-6,1e4], [logy], [logx],
+  [xlabel,"{/Symbol x}"],[ylabel,"{/Symbol l}"],
+  [style, [lines,4]]),
+gnuplot_replot("set size 0.6,0.6;unset key;
+                set lmargin 9.5;
+                set xtics (1e-6,1e-4,0.01,1,100,10000);
+                set term postscript eps enhanced color solid 18;
+                set out 'beta_xi_large.eps';"),
+system("sleep 1;epstopdf beta_xi_large.eps"));
+
+load("ns_r_data.mac");
+
+chi(phi,xi):=quad_qag( sqrt(dchidphi2(phiint,xi)), phiint, 0,phi, 3)[1];
+
+if doplots then block([phi2max:2],
+draw2d(
+  key="0",color=red,explicit(chi(phi2,0),phi2,0,phi2max),
+  key="0.01",color=green,explicit(chi(phi2,0.01),phi2,0,phi2max),
+  key="0.1",color=blue,explicit(chi(phi2,0.1),phi2,0,phi2max),
+  key="0.2",color=cyan,explicit(chi(phi2,0.2),phi2,0,phi2max),
+  key="0.3",color=yellow,explicit(chi(phi2,0.3),phi2,0,phi2max),
+  key="0.5",color=black,explicit(chi(phi2,0.5),phi2,0,phi2max),
+  key="1",color=magenta,explicit(chi(phi2,1),phi2,0,phi2max)
+  ));
+
+if doplots then block([b:1,N:60],
+  draw2d(xrange=[0,20],yrange=[0,40000],line_width=2,
+    color=red,key="0",explicit(b*x^4/4,x,0,sqrt(phiN2(N,1e-13))),
+    color=blue,key="0.01",ev(parametric(chi(phi,xi),U(phi,b,xi),phi,0,sqrt(phiN2(N,xi))),xi=0.003)
+    ));
+
+if doplots then block([b:1,N:60],
+  draw2d(xrange=[0,20],yrange=[0,100],line_width=2,
+    color=blue,key="0",explicit(b*x^4/4,x,0,sqrt(phiN2(N,1e-13))),
+    color=red,key="0.001",ev(parametric(chi(phi,xi),U(phi,b,xi),phi,0,sqrt(phiN2(N,xi))),xi=0.001),
+    color=green,key="0.01",ev(parametric(chi(phi,xi),U(phi,b,xi),phi,0,sqrt(phiN2(N,xi))),xi=0.01),
+    color=navy,key="0.1",ev(parametric(chi(phi,xi),U(phi,b,xi),phi,0,sqrt(phiN2(N,xi))),xi=0.1),
+    color=orange,key="1",ev(parametric(chi(phi,xi),U(phi,b,xi),phi,0,sqrt(phiN2(N,xi))),xi=1)
+    ));
+
+
+
+if doplots then block([b:1,N:50],
+  draw2d(xrange=[0,30],
+    line_width=2,
+    color=red,key="0",explicit(b*x^4/4,x,0,sqrt(phiN2(N,1e-13))),
+    color=blue,key="0.01",ev(explicit(U(phi,b,xi),phi,0,sqrt(phiN2(N,xi))),xi=0.1)
+    ));
+
+
+
+if doplots then
+block([nsmin:0.93,nsmax:1.0,
+       rmin:0,rmax:0.25,
+       ximin:1e-5,ximax:1,
+       N:60],
+  set_draw_defaults(),
+  set_draw_defaults(grid=true,line_width=4,
+                    xlabel="n_s",ylabel="r",
+                    user_preamble="set style fill transparent solid 0.7;set bmargin 3.5"
+                    ),
+  draw2d(
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    line_width=2, points_joined=true, point_type=dot, border=false,
+    key="WMAP9, 95%", fill_color=green, polygon(wmap92s), key="",
+    color=dark_green, points(wmap92s),
+    key="68%", fill_color=dark_green, polygon(wmap91s), key="",
+    key="WMAP9+BAO, 95%", fill_color=pink, polygon(wmap9bao2s), key="",
+    color=red, points(wmap9bao2s),
+    key="68%", fill_color=red, polygon(wmap9bao1s),
+
+    key="",
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    line_width=4, points_joined=false,
+    color=blue, parametric(ns(N,xi),r(N,xi),xi,ximin,ximax),
+    color=red, point_type=filled_circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12,1e-3,1e-2,1e-1])),
+    color=blue, point_type=circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12,1e-3,1e-2,1e-1])),
+    color=black, label_alignment=left,
+    label(ev([concat("{/Symbol x}=",0),ns(N,xi)+0.002,r(N,xi)],xi=ximin)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.001)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.01)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.1)),
+
+    line_width=1,points_joined=true,point_type=dot,
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.94)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.95)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.96)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.97)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.98)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.99)),
+    terminal=svg,file_name="r_ns_wmap"
+  ),
+  system("firefox r_ns_wmap.svg")
+);
+
+
+if doplots then
+block([nsmin:0.93,nsmax:1.0,
+       rmin:0,rmax:0.3,
+       ximin:1e-5,ximax:1,
+       N:60],
+  set_draw_defaults(),
+  set_draw_defaults(grid=true,line_width=4,
+                    xlabel="n_s",ylabel="r",
+                    user_preamble="set style fill transparent solid 0.7;set bmargin 3.5;set terminal pdf font 'Arial,8'"
+                    ),
+  draw2d(
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    line_width=2, points_joined=true, point_type=dot, border=false,
+    key="", fill_color=gray80, polygon(planck13wp2s), key="",
+    color=gray50, points(planck13wp2s),
+    key="Planck13+WP", fill_color=gray50, polygon(planck13wp1s), key="",
+    key="", fill_color="#8ad1f5", polygon(planck13wpbao2s), key="",
+    color="#006eeb", points(planck13wpbao2s),
+    key="Planck13+WP+BAO", fill_color="#006eeb", polygon(planck13wpbao1s),
+
+    key="",
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    line_width=4, points_joined=false,
+    color=blue, parametric(ns(N,xi),r(N,xi),xi,ximin,ximax),
+    color=red, point_size=0.5, point_type=filled_circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12,1e-3,1e-2,1e-1])),
+    color=blue, point_type=circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12,1e-3,1e-2,1e-1])),
+    color=black, label_alignment=left,
+    label(ev([concat("{/Symbol x}=",0),ns(N,xi)+0.002,r(N,xi)],xi=ximin)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.001)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.01)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.1)),
+
+    line_width=1,points_joined=true,point_type=dot,
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.94)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.95)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.96)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.97)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.98)),
+    points(ev([[x,rmin],[x,rmin+(rmax-rmin)/40]],x=0.99)),
+    terminal=pdf,file_name="r_ns_planck13"
+  ),
+  system("#zathura r_ns_planck13.pdf")
+);
+
+
+if doplots then
+block([nsmin:0.93,nsmax:1.0,
+       rmin:0,rmax:0.3,
+       ximin:1e-5,ximax:50000,
+       N:60,
+       nsr2:0.9638,rr2:0.0036,
+       nsr2c:0.9644,rr2c:0.0036,
+       nshi:0.9664,rhi:0.0032
+       ],
+  draw2d(line_width=4,
+    user_preamble="set style fill transparent solid 0.7",
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    xtics=none,ytics=none,
+
+    point_size=1.5,
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    line_width=4, points_joined=false,
+    color=magenta, parametric(ns(N,xi),r(N,xi),xi,ximin,ximax),
+    color=magenta, point_type=filled_circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12,1e-3,1e-2,1e-1])),
+    color=black, point_type=circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12,1e-3,1e-2,1e-1])),
+    color=black, label_alignment=left,
+    label(ev([concat("{/Symbol x}=",0),ns(N,xi)+0.002,r(N,xi)],xi=ximin)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.001)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.01)),
+    label(ev([concat("{/Symbol x}=",xi),ns(N,xi)+0.002,r(N,xi)],xi=0.1)),
+
+    color=yellow, point_type=filled_circle, points([[nsr2,rr2]]),
+    color=black, point_type=circle, points([[nsr2,rr2]]),
+/*    color=yellow, point_type=filled_circle, points([[nsr2c,rr2c]]),
+    color=black, point_type=circle, points([[nsr2c,rr2c]]), */
+    color=green, point_type=filled_circle, points([[nshi,rhi]]),
+    color=black, point_type=circle, points([[nshi,rhi]]),
+
+    line_width=1,
+    points_joined=true,point_type=dot,points([[nsmin,0.25],[nsmax,0.25]]),
+
+    terminal=svg,file_name="r_ns_simple"
+  ),
+  system("open -a safari r_ns_simple.svg")
+);
+
+
+psifp(xi,p):=(1+xi*p*(4-p)-sqrt((1+2*p*xi)*(1+6*p*xi)))/(-xi*(4-p)^2+2*(1+6*xi));
+psiNp(N,xi,p):=abs((p-4)*psifp(xi,p)-p)*(exp(2*xi*N*(p-4)));
+nspxi(N,xi,p):=block([psi:psiNp(N,xi,p)],
+    -xi/psi*(p+(4-p)*psi)/(1-(1+6*xi)*psi)*
+    (
+      -3*p+(3*p-8)*psi+2*(1+6*xi)*psi*(1-psi)/(1-(1+6*xi)*psi)
+      +2*((1-psi)^2*p*(p-1)+4*psi*(1+p+(1-p)*psi))/(p+(4-p)*psi)
+      )
+    );
+rpxi(N,xi,p):=block([psi:psiNp(N,xi,p)],
+    -8*xi/psi*(p+(4-p)*psi)^2/(1-(1+6*xi)*psi));
+
+if doplots then
+block([nsmin:0.93,nsmax:1.0,
+       rmin:0,rmax:0.3,
+       ximin:1e-5,ximax:50000,
+       N:60,
+       nsr2:0.9638,rr2:0.0036,
+       nsr2c:0.9644,rr2c:0.0036,
+       nshi:0.9664,rhi:0.0032
+       ],
+  draw2d(line_width=4,
+    user_preamble="set style fill transparent solid 0.7",
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    xtics=none,ytics=none,
+
+    point_size=1.5,
+    xrange=[nsmin,nsmax],yrange=[rmin,rmax],
+    line_width=4, points_joined=false,
+    color=cyan, point_type=filled_circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12])),
+    color=black, point_type=circle, points(makelist([ns(N,xi),r(N,xi)],xi,[1e-12])),
+    color=black, label_alignment=left,
+
+    line_width=1,
+    points_joined=true,point_type=dot,points([[nsmin,0.25],[nsmax,0.25]]),
+
+    terminal=svg,file_name="r_ns_phi2phi4"
+  ),
+  system("open -a firefox r_ns_phi2phi4.svg")
+);
